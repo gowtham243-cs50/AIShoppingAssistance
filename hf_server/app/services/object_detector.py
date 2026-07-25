@@ -10,16 +10,26 @@ from ..config import (
     INTER_OP_NUM_THREADS,
 )
 
-print(f"Loading YOLO detector '{YOLO_MODEL_ID}/{YOLO_MODEL_FILENAME}'...")
-yolo_model_file = hf_hub_download(repo_id=YOLO_MODEL_ID, filename=YOLO_MODEL_FILENAME)
+_yolo_session = None
 
-yolo_ort_options = ort.SessionOptions()
-yolo_ort_options.intra_op_num_threads = INTRA_OP_NUM_THREADS
-yolo_ort_options.inter_op_num_threads = INTER_OP_NUM_THREADS
-yolo_session = ort.InferenceSession(
-    yolo_model_file, sess_options=yolo_ort_options, providers=["CPUExecutionProvider"]
-)
-print("YOLO detector loaded successfully!")
+
+def _get_yolo_session() -> ort.InferenceSession:
+    """Lazy-load the YOLO ONNX session on first use instead of at import time."""
+    global _yolo_session
+    if _yolo_session is not None:
+        return _yolo_session
+
+    print(f"[object_detector] Downloading YOLO model '{YOLO_MODEL_ID}/{YOLO_MODEL_FILENAME}'...")
+    model_file = hf_hub_download(repo_id=YOLO_MODEL_ID, filename=YOLO_MODEL_FILENAME)
+
+    ort_options = ort.SessionOptions()
+    ort_options.intra_op_num_threads = INTRA_OP_NUM_THREADS
+    ort_options.inter_op_num_threads = INTER_OP_NUM_THREADS
+    _yolo_session = ort.InferenceSession(
+        model_file, sess_options=ort_options, providers=["CPUExecutionProvider"]
+    )
+    print("[object_detector] YOLO model loaded successfully!")
+    return _yolo_session
 
 
 def _letterbox(
@@ -160,10 +170,11 @@ def detect_objects(
     max_detections: int = 3,
 ) -> list[dict]:
     """Run YOLO detection on image bytes. Returns list of detections sorted by confidence."""
+    session = _get_yolo_session()
     pixel_values, ratio, pad, orig_size = _preprocess(contents)
-    input_name = yolo_session.get_inputs()[0].name
-    output_name = yolo_session.get_outputs()[0].name
-    raw_output = yolo_session.run([output_name], {input_name: pixel_values})[0]
+    input_name = session.get_inputs()[0].name
+    output_name = session.get_outputs()[0].name
+    raw_output = session.run([output_name], {input_name: pixel_values})[0]
     detections = _postprocess(
         raw_output, conf_threshold, iou_threshold, ratio, pad, orig_size, max_detections
     )
