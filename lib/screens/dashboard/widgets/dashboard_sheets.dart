@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../models/cart_item_model.dart';
+import '../../../models/fulfillment_option.dart';
 import '../../../services/inventory_service.dart';
 import 'payment_sheet.dart';
 import 'missing_regulars_sheet.dart';
+import 'fulfillment_sheet.dart';
+import 'order_confirmation_screen.dart';
 
 class DashboardSheets {
   static Future<void> showProfileSheet(
@@ -147,6 +150,38 @@ class DashboardSheets {
       builder: (ctx) {
         return _ItemConfirmSheetContent(item: item);
       },
+    );
+  }
+
+  static Future<FulfillmentSelection?> showFulfillmentSheet(
+    BuildContext context, {
+    required double amount,
+  }) {
+    return showModalBottomSheet<FulfillmentSelection>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return FulfillmentSheet(amount: amount);
+      },
+    );
+  }
+
+  static Future<void> showOrderConfirmationScreen(
+    BuildContext context, {
+    required FulfillmentSelection fulfillment,
+    required double amount,
+    required String orderId,
+  }) {
+    return Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (ctx) => OrderConfirmationScreen(
+          fulfillment: fulfillment,
+          amount: amount,
+          orderId: orderId,
+        ),
+      ),
     );
   }
 

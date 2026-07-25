@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../services/cart_service.dart';
 import '../../../services/inventory_service.dart';
 import '../../../services/chat_agent_service.dart';
+import '../../../models/fulfillment_option.dart';
 import '../../dashboard/widgets/cart_item.dart';
 import '../../dashboard/widgets/checkout_bar.dart';
 import '../../dashboard/widgets/dashboard_sheets.dart';
@@ -21,7 +22,6 @@ class _ChatCartSheetState extends State<ChatCartSheet> {
     if (_cartService.isEmpty || _isCheckingOut) return;
 
     setState(() => _isCheckingOut = true);
-    final theme = Theme.of(context);
 
     // Trigger Missing Regulars Agent before checkout
     try {
@@ -55,7 +55,22 @@ class _ChatCartSheetState extends State<ChatCartSheet> {
     if (!mounted) return;
 
     final double total = _cartService.totalPrice;
+
+    // Show Fulfillment Location & Time Selection Popup
+    final FulfillmentSelection? fulfillmentSelection =
+        await DashboardSheets.showFulfillmentSheet(
+      context,
+      amount: total,
+    );
+
+    if (fulfillmentSelection == null || !mounted) {
+      setState(() => _isCheckingOut = false);
+      return;
+    }
+
     bool paymentSuccess = false;
+    final orderId =
+        'H${DateTime.now().millisecondsSinceEpoch.toString().substring(4)}';
 
     // Open the premium payment sheet
     await DashboardSheets.showPaymentSheet(
@@ -72,30 +87,13 @@ class _ChatCartSheetState extends State<ChatCartSheet> {
       if (paymentSuccess) {
         // Pop the ChatCartSheet
         Navigator.of(context).pop();
-        // Show success snackbar on the chatbot screen
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.fixed,
-            content: Row(
-              children: [
-                Icon(
-                  Icons.check_circle_outline,
-                  color: theme.colorScheme.secondary,
-                  size: 20,
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  'Order placed! ₹${total.toStringAsFixed(2)} charged.',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: theme.colorScheme.primary,
-            duration: const Duration(milliseconds: 1500),
-          ),
+
+        // Show order tracking screen
+        DashboardSheets.showOrderConfirmationScreen(
+          context,
+          fulfillment: fulfillmentSelection,
+          amount: total,
+          orderId: orderId,
         );
       }
     }

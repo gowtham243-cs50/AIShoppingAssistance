@@ -32,7 +32,7 @@ jobs:
           api = HfApi(token=os.environ['HF_TOKEN'])
           for i in range(5):
               try:
-                  api.upload_folder(folder_path='./hf_server', repo_id='Mojo-Maniac/AIShoppingAssistance_Server', repo_type='space', delete_patterns='*')
+                  api.upload_folder(folder_path='./hf_server', repo_id='Gowthamr23/fast-api-cloud', repo_type='space', delete_patterns='*')
                   print('Upload completed successfully!')
                   break
               except Exception as e:
@@ -52,7 +52,7 @@ jobs:
           import os, time, sys
           from huggingface_hub import HfApi
           api = HfApi(token=os.environ.get('HF_TOKEN'))
-          repo_id = 'Mojo-Maniac/AIShoppingAssistance_Server'
+          repo_id = 'Gowthamr23/fast-api-cloud'
           print(f'Polling deployment status for space {repo_id}...')
           time.sleep(15) # Wait for HF build to register
           timeout = 600 # 10 minutes max

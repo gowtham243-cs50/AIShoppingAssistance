@@ -7,6 +7,7 @@ import 'package:camera/camera.dart';
 import 'widgets/cart_item.dart';
 import '../chatbot/chatbot_screen.dart';
 import '../../models/cart_item_model.dart';
+import '../../models/fulfillment_option.dart';
 import '../../services/chromadb_client.dart';
 import '../../services/cart_service.dart';
 import '../../services/inventory_service.dart';
@@ -467,6 +468,18 @@ class _DashboardScreenState extends State<DashboardScreen>
 
     if (confirmed != true || !mounted) return;
 
+    // Show Fulfillment Location & Time Selection Popup
+    final FulfillmentSelection? fulfillmentSelection =
+        await DashboardSheets.showFulfillmentSheet(
+      context,
+      amount: total,
+    );
+
+    if (fulfillmentSelection == null || !mounted) {
+      setState(() => _isCheckingOut = false);
+      return;
+    }
+
     setState(() => _isCheckingOut = true);
 
     // Open the premium payment sheet
@@ -474,9 +487,18 @@ class _DashboardScreenState extends State<DashboardScreen>
       context,
       amount: total,
       onPaymentSuccess: () async {
+        final orderId =
+            'H${DateTime.now().millisecondsSinceEpoch.toString().substring(4)}';
         await _cartService.checkout();
         if (mounted) {
           setState(() => _isCheckingOut = false);
+          // Show order tracking & pickup confirmation screen
+          DashboardSheets.showOrderConfirmationScreen(
+            context,
+            fulfillment: fulfillmentSelection,
+            amount: total,
+            orderId: orderId,
+          );
         }
       },
     );

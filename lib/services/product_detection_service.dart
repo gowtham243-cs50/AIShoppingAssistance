@@ -65,8 +65,10 @@ class HuggingFaceProxyDetectionService implements ProductDetectionService {
     debugPrint('--- UNIFIED DETECT START ---');
     debugPrint('Captured photo path: ${photo.path}');
 
-    if (_primaryUrl.isEmpty) {
-      debugPrint('[ProductDetectionService] Error: Primary URL is empty');
+    if (_primaryUrl.isEmpty && _backupUrl.isEmpty) {
+      debugPrint(
+        '[ProductDetectionService] Error: Both Primary and Backup URLs are empty',
+      );
       return null;
     }
 
@@ -75,22 +77,28 @@ class HuggingFaceProxyDetectionService implements ProductDetectionService {
     http.Response? response;
     String activeUrl = _primaryUrl;
 
-    // Try primary first
-    try {
-      debugPrint('Attempting primary endpoint: $activeUrl/detect');
-      final networkStopwatch = Stopwatch()..start();
-      response = await _sendDetectRequest(activeUrl, bytes);
-      networkStopwatch.stop();
+    // Try primary first if set
+    if (_primaryUrl.isNotEmpty) {
+      try {
+        debugPrint('Attempting primary endpoint: $activeUrl/detect');
+        final networkStopwatch = Stopwatch()..start();
+        response = await _sendDetectRequest(activeUrl, bytes);
+        networkStopwatch.stop();
+        debugPrint(
+          '[ProductDetectionService] Primary network roundtrip took: ${networkStopwatch.elapsedMilliseconds}ms',
+        );
+      } catch (e) {
+        debugPrint(
+          '[ProductDetectionService] Primary endpoint failed with exception: $e',
+        );
+      }
+    } else {
       debugPrint(
-        '[ProductDetectionService] Primary network roundtrip took: ${networkStopwatch.elapsedMilliseconds}ms',
-      );
-    } catch (e) {
-      debugPrint(
-        '[ProductDetectionService] Primary endpoint failed with exception: $e',
+        '[ProductDetectionService] Primary URL is empty. Reverting to secondary/backup endpoint...',
       );
     }
 
-    // Fall back to backup if primary failed or returned server error (5xx) or was not reachable
+    // Fall back to backup if primary was empty, failed, or returned server error (5xx)
     if ((response == null || response.statusCode >= 500) &&
         _backupUrl.isNotEmpty) {
       activeUrl = _backupUrl;
