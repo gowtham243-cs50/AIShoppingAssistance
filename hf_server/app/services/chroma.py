@@ -10,7 +10,7 @@ class ChromaSearcher:
         self.api_key = token or os.environ.get("CHROMA_API_KEY", "")
         self.tenant = "99526d4b-48cf-4b20-896b-0947aa36d4ab"
         self.database = "QLESS2"
-        self.collection_id = "c1102322-920e-4775-96c1-e324bdadaa1d"
+        self.collection_id = "8e924609-da78-4c85-87ed-95c05439f85e"
         self.url = f"https://api.trychroma.com/api/v2/tenants/{self.tenant}/databases/{self.database}/collections/{self.collection_id}/query"
 
     async def search(self, embedding: list[float]) -> tuple[str, float] | None:

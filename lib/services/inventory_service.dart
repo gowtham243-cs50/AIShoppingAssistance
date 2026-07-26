@@ -9,7 +9,13 @@ class InventoryService {
   factory InventoryService() => _instance;
   InventoryService._internal();
 
-  final _supabase = Supabase.instance.client;
+  SupabaseClient? get _supabase {
+    try {
+      return Supabase.instance.client;
+    } catch (_) {
+      return null;
+    }
+  }
 
   final Map<String, String> _imageUrls = {};
   final Map<String, String> _thumbnailUrls = {}; // Supabase Storage URLs
@@ -52,7 +58,9 @@ class InventoryService {
       debugPrint(
         '[InventoryService] Fetching dynamic catalog from Supabase...',
       );
-      final response = await _supabase
+      final client = _supabase;
+      if (client == null) return;
+      final response = await client
           .from('inventory')
           .select(
             'sku, slug, name, price_rupees, prices, staging_dirs, thumbnail_url',
@@ -115,11 +123,18 @@ class InventoryService {
     }
   }
 
-  /// Helper to check if credentials are set in .env
+  /// Helper to check if credentials are set in .env and valid
   bool _hasCredentials() {
-    final url = dotenv.env['SUPABASE_URL'];
-    final key = dotenv.env['SUPABASE_ANON_KEY'];
-    return url != null && url.isNotEmpty && key != null && key.isNotEmpty;
+    final url = dotenv.env['SUPABASE_URL']?.trim();
+    final key = dotenv.env['SUPABASE_ANON_KEY']?.trim();
+    if (url == null || url.isEmpty || key == null || key.isEmpty) return false;
+    if (url.contains('<your-project-ref>') ||
+        url.contains('<') ||
+        url.contains('>')) {
+      return false;
+    }
+    final parsed = Uri.tryParse(url);
+    return parsed != null && parsed.hasAbsolutePath && parsed.host.isNotEmpty;
   }
 
   /// Queries the 'inventory' table in Supabase for a single product matching the slug.
@@ -139,9 +154,12 @@ class InventoryService {
       return null;
     }
 
+    final client = _supabase;
+    if (client == null) return null;
+
     debugPrint('[InventoryService] Querying Supabase for slug: "$slug"');
     try {
-      final response = await _supabase
+      final response = await client
           .from('inventory')
           .select(
             'sku, slug, name, price_rupees, prices, staging_dirs, thumbnail_url',
@@ -176,8 +194,13 @@ class InventoryService {
       return "Failed: Credentials not set in .env";
     }
 
+    final client = _supabase;
+    if (client == null) {
+      return "Failed: Supabase client not initialized";
+    }
+
     try {
-      await _supabase.from('inventory').select('sku').limit(1);
+      await client.from('inventory').select('sku').limit(1);
       return "Connected: OK";
     } on TypeError catch (_) {
       return "Failed: Cast error (check if 'inventory' table exists in Supabase)";

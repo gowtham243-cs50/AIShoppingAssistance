@@ -87,14 +87,32 @@ Future<void> main() async {
     debugPrint('Could not load .env file: $e');
   }
 
-  // Initialize Supabase using values from .env
-  try {
-    await Supabase.initialize(
-      url: dotenv.env['SUPABASE_URL'] ?? '',
-      publishableKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
+  // Initialize Supabase using values from .env if valid and non-placeholder
+  final rawSupabaseUrl = dotenv.env['SUPABASE_URL']?.trim() ?? '';
+  final rawSupabaseKey = dotenv.env['SUPABASE_ANON_KEY']?.trim() ?? '';
+  final parsedSupabaseUrl = Uri.tryParse(rawSupabaseUrl);
+  final isSupabaseValid = rawSupabaseUrl.isNotEmpty &&
+      !rawSupabaseUrl.contains('<your-project-ref>') &&
+      !rawSupabaseUrl.contains('<') &&
+      !rawSupabaseUrl.contains('>') &&
+      parsedSupabaseUrl != null &&
+      parsedSupabaseUrl.hasAbsolutePath &&
+      parsedSupabaseUrl.host.isNotEmpty;
+
+  if (isSupabaseValid && rawSupabaseKey.isNotEmpty) {
+    try {
+      await Supabase.initialize(
+        url: rawSupabaseUrl,
+        publishableKey: rawSupabaseKey,
+      );
+      debugPrint('[Main] Supabase initialized successfully.');
+    } catch (e) {
+      debugPrint('Supabase initialization error: $e');
+    }
+  } else {
+    debugPrint(
+      '[Main] Skipping Supabase initialization: Unconfigured or placeholder SUPABASE_URL.',
     );
-  } catch (e) {
-    debugPrint('Supabase initialization error: $e');
   }
 
   // Load and cache tenant theme if specified via dart-define

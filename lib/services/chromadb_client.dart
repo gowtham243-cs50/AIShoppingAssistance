@@ -67,7 +67,7 @@ class ChromaDbClient {
 
   /// Temporary method to check database connectivity
   Future<String> checkConnectivity() async {
-    const collectionId = 'c1102322-920e-4775-96c1-e324bdadaa1d';
+    const collectionId = '8e924609-da78-4c85-87ed-95c05439f85e';
     final url = Uri.parse(
       'https://api.trychroma.com/api/v2/tenants/$_tenant/databases/$_database/collections/$collectionId/get',
     );
@@ -103,7 +103,7 @@ class ChromaDbClient {
     debugPrint('Captured photo path: ${photo.path}');
 
     // The collection ID for 'supermarket_catalog'
-    const collectionId = 'c1102322-920e-4775-96c1-e324bdadaa1d';
+    const collectionId = '8e924609-da78-4c85-87ed-95c05439f85e';
     // Use the v2 API endpoint for ChromaDB Cloud
     final url = Uri.parse(
       'https://api.trychroma.com/api/v2/tenants/$_tenant/databases/$_database/collections/$collectionId/query',
