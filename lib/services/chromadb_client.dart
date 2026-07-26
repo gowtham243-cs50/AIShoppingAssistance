@@ -12,7 +12,7 @@ class ChromaDbClient {
   static const String _baseUrl =
       'https://api.trychroma.com/api/v1'; // Update to the specific cloud endpoint if different
   final String _tenant = '99526d4b-48cf-4b20-896b-0947aa36d4ab';
-  final String _database = 'QLESS';
+  final String _database = 'QLESS2';
 
   late final String _apiKey;
 
