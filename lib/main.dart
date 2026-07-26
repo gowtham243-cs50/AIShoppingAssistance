@@ -83,36 +83,48 @@ Future<void> main() async {
 
   try {
     await dotenv.load(fileName: ".env");
+    debugPrint('[Dotenv] Loaded .env file successfully. Keys found: ${dotenv.env.keys.toList()}');
   } catch (e) {
-    debugPrint('Could not load .env file: $e');
+    debugPrint('[Dotenv] Could not load .env file: $e');
   }
 
-  // Initialize Supabase using values from .env if valid and non-placeholder
-  final rawSupabaseUrl = dotenv.env['SUPABASE_URL']?.trim() ?? '';
-  final rawSupabaseKey = dotenv.env['SUPABASE_ANON_KEY']?.trim() ?? '';
+  // Initialize Supabase using values from .env (fallback to active backend URL if unconfigured or failed to load)
+  const defaultSupabaseUrl = 'https://hwvkfsjhzjuqkqhuqtsg.supabase.co';
+  const defaultSupabaseKey =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh3dmtmc2poemp1cWtxaHVxdHNnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzNTc1MzcsImV4cCI6MjA5NjkzMzUzN30.FisdaztXlkT7tzu8QR49W-Pm4dzw5mc258fAJ-4TcRY';
+
+  final envSupabaseUrl = dotenv.env['SUPABASE_URL']?.trim() ?? '';
+  final envSupabaseKey = dotenv.env['SUPABASE_ANON_KEY']?.trim() ?? '';
+
+  debugPrint('[Dotenv] SUPABASE_URL loaded: "$envSupabaseUrl"');
+  debugPrint('[Dotenv] SUPABASE_ANON_KEY loaded: "${envSupabaseKey.isNotEmpty ? "Yes (len ${envSupabaseKey.length})" : "Empty"}"');
+
+  final rawSupabaseUrl = envSupabaseUrl.isNotEmpty ? envSupabaseUrl : defaultSupabaseUrl;
+  final rawSupabaseKey = envSupabaseKey.isNotEmpty ? envSupabaseKey : defaultSupabaseKey;
   final parsedSupabaseUrl = Uri.tryParse(rawSupabaseUrl);
   final isSupabaseValid = rawSupabaseUrl.isNotEmpty &&
       !rawSupabaseUrl.contains('<your-project-ref>') &&
       !rawSupabaseUrl.contains('<') &&
       !rawSupabaseUrl.contains('>') &&
       parsedSupabaseUrl != null &&
-      parsedSupabaseUrl.hasAbsolutePath &&
-      parsedSupabaseUrl.host.isNotEmpty;
+      parsedSupabaseUrl.hasScheme &&
+      parsedSupabaseUrl.host.isNotEmpty &&
+      rawSupabaseKey.isNotEmpty &&
+      !rawSupabaseKey.contains('your_');
 
-  if (isSupabaseValid && rawSupabaseKey.isNotEmpty) {
-    try {
-      await Supabase.initialize(
-        url: rawSupabaseUrl,
-        publishableKey: rawSupabaseKey,
-      );
-      debugPrint('[Main] Supabase initialized successfully.');
-    } catch (e) {
-      debugPrint('Supabase initialization error: $e');
-    }
-  } else {
-    debugPrint(
-      '[Main] Skipping Supabase initialization: Unconfigured or placeholder SUPABASE_URL.',
+  final supabaseUrl = isSupabaseValid ? rawSupabaseUrl : defaultSupabaseUrl;
+  final supabaseKey = isSupabaseValid ? rawSupabaseKey : defaultSupabaseKey;
+
+  try {
+    await Supabase.initialize(
+      url: supabaseUrl,
+      publishableKey: supabaseKey,
     );
+    debugPrint(
+      '[Main] Supabase initialized successfully ($supabaseUrl).',
+    );
+  } catch (e) {
+    debugPrint('Supabase initialization error: $e');
   }
 
   // Load and cache tenant theme if specified via dart-define

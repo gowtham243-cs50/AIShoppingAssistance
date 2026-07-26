@@ -13,21 +13,31 @@ class CartService extends ChangeNotifier {
   static final CartService _instance = CartService._internal();
   factory CartService() => _instance;
 
-  final _supabase = Supabase.instance.client;
+  SupabaseClient? get _supabase {
+    try {
+      return Supabase.instance.client;
+    } catch (_) {
+      return null;
+    }
+  }
 
   CartService._internal() {
     // Listen for auth state changes to load/clear user cart reactively
-    _supabase.auth.onAuthStateChange.listen((data) {
-      final user = data.session?.user;
-      if (user != null) {
-        _loadActiveCartFromSupabase(user.id);
-      } else {
-        _items.clear();
-        _persist();
-        _loadedUserId = null;
-        notifyListeners();
-      }
-    });
+    try {
+      _supabase?.auth.onAuthStateChange.listen((data) {
+        final user = data.session?.user;
+        if (user != null) {
+          _loadActiveCartFromSupabase(user.id);
+        } else {
+          _items.clear();
+          _persist();
+          _loadedUserId = null;
+          notifyListeners();
+        }
+      });
+    } catch (e) {
+      debugPrint('[CartService] Could not listen to auth state changes: $e');
+    }
   }
 
   static const String _cartKey = 'cart_items_v1';
@@ -84,7 +94,8 @@ class CartService extends ChangeNotifier {
       }
 
       // If already logged in on startup, sync the latest active cart from Supabase
-      final user = _supabase.auth.currentUser;
+      final client = _supabase;
+      final user = client?.auth.currentUser;
       if (user != null) {
         await _loadActiveCartFromSupabase(user.id);
       }
@@ -122,7 +133,9 @@ class CartService extends ChangeNotifier {
     _activeLoadFuture = completer.future;
 
     try {
-      final activeCart = await _supabase
+      final client = _supabase;
+      if (client == null) return;
+      final activeCart = await client
           .from('user_carts')
           .select('id, items')
           .eq('user_id', userId)
@@ -154,8 +167,9 @@ class CartService extends ChangeNotifier {
   /// Uses a cached cart ID to avoid an extra SELECT on every sync, and skips
   /// the write entirely when the cart contents have not changed.
   Future<void> _syncActiveCart() async {
-    final user = _supabase.auth.currentUser;
-    if (user == null) return;
+    final client = _supabase;
+    final user = client?.auth.currentUser;
+    if (user == null || client == null) return;
 
     // Skip sync when nothing has changed since the last write.
     final currentHash = _cartHash();
@@ -164,7 +178,7 @@ class CartService extends ChangeNotifier {
     try {
       if (_activeCartId != null) {
         // Fast path: we already know the row ID — skip the SELECT.
-        await _supabase
+        await client
             .from('user_carts')
             .update({
               'items': _items.map((e) => e.toJson()).toList(),
@@ -175,7 +189,7 @@ class CartService extends ChangeNotifier {
         _lastSyncedHash = currentHash;
       } else {
         // Slow path: fetch the row ID once and cache it for future syncs.
-        final activeCart = await _supabase
+        final activeCart = await client
             .from('user_carts')
             .select('id')
             .eq('user_id', user.id)
@@ -184,7 +198,7 @@ class CartService extends ChangeNotifier {
 
         if (activeCart != null) {
           _activeCartId = activeCart['id'] as String?;
-          await _supabase
+          await client
               .from('user_carts')
               .update({
                 'items': _items.map((e) => e.toJson()).toList(),
@@ -195,7 +209,7 @@ class CartService extends ChangeNotifier {
           _lastSyncedHash = currentHash;
         } else if (_items.isNotEmpty) {
           // No active cart row exists yet — create one.
-          final inserted = await _supabase
+          final inserted = await client
               .from('user_carts')
               .insert({
                 'user_id': user.id,
@@ -303,15 +317,16 @@ class CartService extends ChangeNotifier {
     _items.removeAt(index);
     _persist();
     // If the cart becomes empty, delete the active cart from Supabase
-    final user = _supabase.auth.currentUser;
-    if (user != null && _items.isEmpty) {
+    final client = _supabase;
+    final user = client?.auth.currentUser;
+    if (client != null && user != null && _items.isEmpty) {
       _syncTimer
           ?.cancel(); // Cancel any pending sync if we are deleting the cart
       final cartIdToDelete = _activeCartId;
       _activeCartId = null;
       _lastSyncedHash = null;
       if (cartIdToDelete != null) {
-        _supabase
+        client
             .from('user_carts')
             .delete()
             .eq('id', cartIdToDelete)
@@ -321,7 +336,7 @@ class CartService extends ChangeNotifier {
                   debugPrint('[CartService] Error deleting active cart: $e'),
             );
       } else {
-        _supabase
+        client
             .from('user_carts')
             .delete()
             .eq('user_id', user.id)
@@ -341,14 +356,15 @@ class CartService extends ChangeNotifier {
   void clearCart() {
     _items.clear();
     _persist();
-    final user = _supabase.auth.currentUser;
-    if (user != null) {
+    final client = _supabase;
+    final user = client?.auth.currentUser;
+    if (client != null && user != null) {
       _syncTimer?.cancel();
       final cartIdToDelete = _activeCartId;
       _activeCartId = null;
       _lastSyncedHash = null;
       if (cartIdToDelete != null) {
-        _supabase
+        client
             .from('user_carts')
             .delete()
             .eq('id', cartIdToDelete)
@@ -358,7 +374,7 @@ class CartService extends ChangeNotifier {
                   debugPrint('[CartService] Error deleting active cart: $e'),
             );
       } else {
-        _supabase
+        client
             .from('user_carts')
             .delete()
             .eq('user_id', user.id)
@@ -378,10 +394,11 @@ class CartService extends ChangeNotifier {
   /// Completes the checkout: marks the active cart as processed in Supabase,
   /// clears the in-memory cart, and wipes local storage.
   Future<void> checkout() async {
-    final user = _supabase.auth.currentUser;
-    if (user != null) {
+    final client = _supabase;
+    final user = client?.auth.currentUser;
+    if (client != null && user != null) {
       try {
-        final activeCart = await _supabase
+        final activeCart = await client
             .from('user_carts')
             .select('id')
             .eq('user_id', user.id)
@@ -390,7 +407,7 @@ class CartService extends ChangeNotifier {
 
         if (activeCart != null) {
           // Progress state to 'processed'
-          await _supabase
+          await client
               .from('user_carts')
               .update({
                 'status': 'processed',
@@ -399,7 +416,7 @@ class CartService extends ChangeNotifier {
               .eq('id', activeCart['id']);
         } else if (_items.isNotEmpty) {
           // If no active cart exists in DB but we have local items, write direct processed entry
-          await _supabase.from('user_carts').insert({
+          await client.from('user_carts').insert({
             'user_id': user.id,
             'items': _items.map((e) => e.toJson()).toList(),
             'total_price': totalPrice,

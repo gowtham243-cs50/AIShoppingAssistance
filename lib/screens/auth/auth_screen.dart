@@ -170,8 +170,10 @@ class _AuthScreenState extends State<AuthScreen> {
         lower.contains('clientexception') ||
         lower.contains('network') ||
         lower.contains('socketexception') ||
-        lower.contains('connection refused')) {
-      return 'Unable to connect. Please check your internet connection and try again.';
+        lower.contains('connection refused') ||
+        lower.contains('err_name_not_resolved') ||
+        lower.contains('not_resolved')) {
+      return 'Unable to connect to authentication server. Please check your network connection.';
     }
     if (lower.contains('invalid login credentials') ||
         lower.contains('invalid email or password')) {

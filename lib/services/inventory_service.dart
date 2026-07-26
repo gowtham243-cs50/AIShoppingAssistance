@@ -123,18 +123,25 @@ class InventoryService {
     }
   }
 
-  /// Helper to check if credentials are set in .env and valid
+  /// Helper to check if credentials are set in .env and valid (falling back to project defaults)
   bool _hasCredentials() {
-    final url = dotenv.env['SUPABASE_URL']?.trim();
-    final key = dotenv.env['SUPABASE_ANON_KEY']?.trim();
-    if (url == null || url.isEmpty || key == null || key.isEmpty) return false;
+    final envUrl = dotenv.env['SUPABASE_URL']?.trim() ?? '';
+    final envKey = dotenv.env['SUPABASE_ANON_KEY']?.trim() ?? '';
+    final url = envUrl.isNotEmpty
+        ? envUrl
+        : 'https://hwvkfsjhzjuqkqhuqtsg.supabase.co';
+    final key = envKey.isNotEmpty
+        ? envKey
+        : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh3dmtmc2poemp1cWtxaHVxdHNnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzNTc1MzcsImV4cCI6MjA5NjkzMzUzN30.FisdaztXlkT7tzu8QR49W-Pm4dzw5mc258fAJ-4TcRY';
+
     if (url.contains('<your-project-ref>') ||
         url.contains('<') ||
-        url.contains('>')) {
+        url.contains('>') ||
+        key.contains('your_')) {
       return false;
     }
     final parsed = Uri.tryParse(url);
-    return parsed != null && parsed.hasAbsolutePath && parsed.host.isNotEmpty;
+    return parsed != null && parsed.hasScheme && parsed.host.isNotEmpty;
   }
 
   /// Queries the 'inventory' table in Supabase for a single product matching the slug.
